@@ -36,7 +36,10 @@
     </div>
 
     <script>
-        const ws = new WebSocket("ws://localhost:8000/ws");
+        // Dynamically detect hosting scheme to route WebSockets cleanly in local vs production cloud tiers
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const host = window.location.host === "localhost:8000" ? "localhost:8000" : window.location.host;
+        const ws = new WebSocket(`${protocol}//${host}/ws`);
         const chatbox = document.getElementById("chatbox");
         const input = document.getElementById("messageInput");
         const inputArea = document.getElementById("inputArea");
