@@ -36,10 +36,17 @@
     </div>
 
     <script>
-        // Dynamically detect hosting scheme to route WebSockets cleanly in local vs production cloud tiers
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host = window.location.host === "localhost:8000" ? "localhost:8000" : window.location.host;
-        const ws = new WebSocket(`${protocol}//${host}/ws`);
+        // Robust environment resolution for local development and cloud routing
+        let ws_protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        let ws_url = "";
+        
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            ws_url = "ws://localhost:8000/ws";
+        } else {
+            ws_url = ws_protocol + "//" + window.location.host + "/ws";
+        }
+        
+        const ws = new WebSocket(ws_url);
         const chatbox = document.getElementById("chatbox");
         const input = document.getElementById("messageInput");
         const inputArea = document.getElementById("inputArea");
