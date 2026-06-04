@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Talent Engine - Interview Simulator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #0d0e12; color: #e4e6eb; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .chat-container { width: 650px; background-color: #161822; border-radius: 16px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); border: 1px solid #25293d; display: flex; flex-direction: column; height: 650px; }
+        h2 { text-align: center; color: #43b581; margin-top: 0; font-weight: 700; letter-spacing: 0.5px; }
+        #chatbox { flex: 1; overflow-y: auto; padding: 12px; background-color: #0f111a; border-radius: 10px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #1e2235; }
+        .msg { padding: 14px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; line-height: 1.5; font-size: 15px; box-sizing: border-box; }
+        .cto { background-color: #1c2130; color: #e4e6eb; align-self: flex-start; border-left: 4px solid #43b581; }
+        .candidate { background-color: #2480f7; color: white; align-self: flex-end; font-weight: 500; }
+        .input-area { display: flex; gap: 12px; }
+        input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid #25293d; background-color: #1c2130; color: white; font-size: 15px; outline: none; transition: border 0.2s; }
+        input:focus { border-color: #2480f7; }
+        button { padding: 14px 28px; border: none; border-radius: 8px; background-color: #43b581; color: white; font-weight: bold; cursor: pointer; font-size: 15px; transition: background 0.2s; }
+        button:hover { background-color: #3ca374; }
+        
+        /* Dashboard Scorecard Styles */
+        .dashboard-card { background: #1c2130; border: 1px solid #25293d; border-radius: 12px; padding: 20px; margin-top: 10px; width: 100%; box-sizing: border-box; }
+        .metric-row { margin-bottom: 16px; }
+        .metric-header { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bar-track { background: #0f111a; height: 12px; border-radius: 6px; overflow: hidden; width: 100%; position: relative; }
+        .bar-fill { height: 100%; background: linear-gradient(90deg, #43b581, #2480f7); width: 0%; transition: width 1.5s cubic-bezier(0.1, 1, 0.1, 1); }
+        .critique-box { background: #0f111a; padding: 12px; border-radius: 8px; border-left: 3px solid #2480f7; margin-top: 15px; font-style: italic; font-size: 14px; color: #b9bbbe; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <h2>Tech Interview Simulator</h2>
+        <div id="chatbox"></div>
+        <div class="input-area" id="inputArea">
+            <input type="text" id="messageInput" placeholder="Type your answer here..." autocomplete="off"/>
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const chatbox = document.getElementById("chatbox");
+        const input = document.getElementById("messageInput");
+        const inputArea = document.getElementById("inputArea");
+
+        input.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // If the socket transmits our finished flag, render the dynamic dashboard panel
+            if (data.is_complete) {
+                renderDashboard(data.scores, data.critique);
+            } else {
+                appendMessage(data.role, data.content, "cto");
+            }
+        };
+
+        function sendMessage() {
+            const msg = input.value.trim();
+            if(msg) {
+                appendMessage("You", msg, "candidate");
+                ws.send(msg);
+                input.value = "";
+            }
+        }
+
+        function appendMessage(sender, text, cssClass) {
+            const div = document.createElement("div");
+            div.className = "msg " + cssClass;
+            div.innerHTML = `<strong>${sender}:</strong><br/>${text}`;
+            chatbox.appendChild(div);
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function renderDashboard(scores, critique) {
+            // Hide the input tray since the session is over
+            inputArea.style.display = "none";
+            
+            // Build out the dynamic interactive rows
+            const dashboardHTML = `
+                <div class="dashboard-card">
+                    <h3 style="margin-top:0;color:#43b581;">📊 Interview Performance Summary</h3>
+                    
+                    <div class="metric-row">
+                        <div class="metric-header"><span>Technical Depth</span><span>${scores.technical_depth}/10</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="techBar"></div></div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <div class="metric-header"><span>Communication</span><span>${scores.communication}/10</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="commBar"></div></div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <div class="metric-header"><span>Problem Solving</span><span>${scores.problem_solving}/10</span></div>
+                        <div class="bar-track"><div class="bar-fill" id="probBar"></div></div>
+                    </div>
+                    
+                    <div class="critique-box">
+                        <strong>Evaluator Feedback:</strong><br/>"${critique}"
+                    </div>
+                </div>
+            `;
+            
+            const containerDiv = document.createElement("div");
+            containerDiv.style.width = "100%";
+            containerDiv.innerHTML = dashboardHTML;
+            chatbox.appendChild(containerDiv);
+            chatbox.scrollTop = chatbox.scrollHeight;
+            
+            // Trigger animation frame delays to smooth fill-out progress lines
+            setTimeout(() => { document.getElementById("techBar").style.width = (scores.technical_depth * 10) + "%"; }, 100);
+            setTimeout(() => { document.getElementById("commBar").style.width = (scores.communication * 10) + "%"; }, 300);
+            setTimeout(() => { document.getElementById("probBar").style.width = (scores.problem_solving * 10) + "%"; }, 500);
+        }
+    </script>
+</body>
+</html>
